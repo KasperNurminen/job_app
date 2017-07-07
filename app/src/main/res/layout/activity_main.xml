@@ -28,12 +28,11 @@
         android:layout_marginBottom="16dp"
         android:layout_marginLeft="8dp"
         android:layout_marginRight="8dp"
-        android:text='Currently blocked dates: "21.08.2017","22.08.2017","23.08.2017","24.08.2017","25.08.2017","27.08.2017","28.08.2017","29.08.2017","30.08.2017","31.08.2017"'
+        android:text='To block dates: Add a new calendar empty with the name "Loma". Remember to add start and end days and times!'
         android:textAlignment="center"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.466"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        tools:text='Currently blocked dates: "21.08.2017","22.08.2017","23.08.2017","24.08.2017","25.08.2017","27.08.2017","28.08.2017","29.08.2017","30.08.2017","31.08.2017"'
-        tools:layout_editor_absoluteX="77dp"
-        app:layout_constraintHorizontal_bias="0.466" />
+        tools:layout_editor_absoluteX="77dp" />
 </android.support.constraint.ConstraintLayout>

@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
-
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -31,7 +31,7 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".Main2Activity"></activity>
+
     </application>
 
 </manifest>

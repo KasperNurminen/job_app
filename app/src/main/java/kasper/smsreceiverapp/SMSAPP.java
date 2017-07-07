@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.CalendarContract;
@@ -20,13 +21,13 @@ import android.util.Log;
 
 import android.widget.Toast;
 
-
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
+import java.util.ArrayList;
+
 import java.util.Calendar;
-import java.util.Date;
+
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,9 +36,8 @@ import java.util.regex.Pattern;
 
 public class SMSAPP extends BroadcastReceiver {
 
-    String[] unwanted_days = {"21.08.2017","22.08.2017","23.08.2017","24.08.2017","25.08.2017","27.08.2017","28.08.2017","29.08.2017","30.08.2017","31.08.2017"};
-    final String wanted_number = "123";
-
+    final String wanted_number = "+3584573950113";
+    final String own_number = "+358400376167";
     @Override
     public void onReceive(Context context, Intent intent) {
         Bundle bundle = intent.getExtras();
@@ -46,12 +46,14 @@ public class SMSAPP extends BroadcastReceiver {
         SmsMessage[] msgs = null;
         if (bundle != null) {
             Object[] pdus = (Object[]) bundle.get("pdus");
+
             msgs = new SmsMessage[pdus.length];
             String number = "";
             String body = "";
 
             for (int i = 0; i < msgs.length; i++) {
                 msgs[i] = SmsMessage.createFromPdu((byte[]) pdus[i]);
+
 
                 number = msgs[i].getOriginatingAddress();
                 body = msgs[i].getMessageBody().toString();
@@ -61,16 +63,31 @@ public class SMSAPP extends BroadcastReceiver {
                 Pattern r = Pattern.compile(pattern);
 
                 Matcher m = r.matcher(body);
-
-                if (m.find()) {
+                Boolean is_wanted_number = number.replaceAll("\\s","").equals(wanted_number);
+                Boolean is_own_number = number.replaceAll("\\s","").equals(own_number);
+                if (m.find() && (is_wanted_number || is_own_number)) {
 
                     try {
-                        String[] parsed_time = parseTime(body);
-                        String job_date = parsed_time[2];
-                        Log.i("job_dates", job_date);
-                        Log.i("job_dates", String.valueOf(Arrays.asList(unwanted_days)));
+                        long[] parsed_time = parseTime(body);
 
-                        if(!Arrays.asList(unwanted_days).contains(job_date)) {
+                        ArrayList<long[]> forbiddenDates = Utility.readCalendarEvent(context);
+                        Boolean is_forbidden = false;
+                        for (int j = 0; j < forbiddenDates.size(); j++) {
+
+                            long calendar_start_date = forbiddenDates.get(j)[0];
+                            long calendar_end_date = forbiddenDates.get(j)[1];
+                            long job_offer_start_date = parsed_time[0];
+                            long job_offer_end_date = parsed_time[1];
+                      /*      Log.i("dates_calendar", String.valueOf(calendar_start_date));
+                            Log.i("dates_calendar", String.valueOf(calendar_end_date));
+                            Log.i("dates_job", String.valueOf(job_offer_start_date));
+                            Log.i("dates_job", String.valueOf(job_offer_end_date)); */
+                            if((calendar_start_date <= job_offer_end_date) && (calendar_end_date >= job_offer_start_date)){
+                                is_forbidden = true;
+                            }
+                        }
+
+                        if(!is_forbidden) {
                             Toast.makeText(context, "Received message from job! Auto-accepting...", Toast.LENGTH_SHORT).show();
                             sendSMS(number, m.group(1));
 
@@ -96,7 +113,7 @@ public class SMSAPP extends BroadcastReceiver {
         }
 
     }
-    private String[] parseTime(String msg) throws ParseException {
+    private long[] parseTime(String msg) throws ParseException {
         String date_pattern = "(\\d{1,2}).(\\d{1,2}).(\\d{1,4})";
         String time_pattern = "(\\d{1,2}:\\d{1,2}) - (\\d{1,2}:\\d{1,2})";
         Pattern compiled_date = Pattern.compile(date_pattern);
@@ -111,9 +128,7 @@ public class SMSAPP extends BroadcastReceiver {
             day = date_matcher.group(1);
             month = date_matcher.group(2);
             year = date_matcher.group(3);
-            Log.i("PARSING-date", day);
-            Log.i("PARSING-date", month);
-            Log.i("PARSING-date", year);
+
 
         }
         Pattern compiled_time = Pattern.compile(time_pattern);
@@ -124,8 +139,6 @@ public class SMSAPP extends BroadcastReceiver {
 
             start_time_string = time_matcher.group(1);
             end_time_string = time_matcher.group(2);
-            Log.i("PARSING-time", start_time_string);
-            Log.i("PARSING-time", end_time_string);
 
         }
         if(day.length() == 1){
@@ -136,14 +149,14 @@ public class SMSAPP extends BroadcastReceiver {
         }
 
         DateFormat df = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        String start_date = String.valueOf(df.parse(String.format("%s/%s/%s %s", day, month, year, start_time_string)).getTime());
-        String end_date = String.valueOf(df.parse(String.format("%s/%s/%s %s", day, month, year, end_time_string)).getTime());
+        long start_date = df.parse(String.format("%s/%s/%s %s", day, month, year, start_time_string)).getTime();
+        long end_date = df.parse(String.format("%s/%s/%s %s", day, month, year, end_time_string)).getTime();
 
-        String[] timeArray;
-        timeArray = new String[3];
+        long[] timeArray;
+        timeArray = new long[2];
         timeArray[0] = start_date;
         timeArray[1] = end_date;
-        timeArray[2] = String.format("%s.%s.%s", day, month, year);
+
         return timeArray;
     }
     private String parseLocation(String msg){
@@ -155,18 +168,18 @@ public class SMSAPP extends BroadcastReceiver {
             return m.group(1);
         }
         else{
-            return "No location found";
+            return "";
         }
     }
-    private void makeCalendarEntry(Context ctx, String title, String comment, String dtstart, String dtend) {
+    private void makeCalendarEntry(Context ctx, String title, String comment, long dtstart, long dtend) {
         Calendar dt = Calendar.getInstance();
         dt.add(Calendar.DATE, 1);
 
         ContentResolver cr = ctx.getContentResolver();
         ContentValues values = new ContentValues();
 
-        values.put(CalendarContract.Events.DTSTART, dtstart);
-        values.put(CalendarContract.Events.DTEND, dtend);
+        values.put(CalendarContract.Events.DTSTART, String.valueOf(dtstart));
+        values.put(CalendarContract.Events.DTEND, String.valueOf(dtend));
         values.put(CalendarContract.Events.TITLE, title + " " + comment);
 
 
@@ -183,12 +196,6 @@ public class SMSAPP extends BroadcastReceiver {
         if (ActivityCompat.checkSelfPermission(ctx, Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(ctx, "NO PERMISSIONS!", Toast.LENGTH_SHORT).show();
 
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         Uri uri = cr.insert(CalendarContract.Events.CONTENT_URI, values);
@@ -199,4 +206,37 @@ public class SMSAPP extends BroadcastReceiver {
         SmsManager sms = SmsManager.getDefault();
         sms.sendTextMessage(phoneNumber, null, message, null, null);
     }
+}
+class Utility {
+
+    public static ArrayList<long[]> dates = new ArrayList<long[]>();
+
+
+    public static ArrayList<long[]> readCalendarEvent(Context context) {
+        Cursor cursor = context.getContentResolver()
+                .query(
+                        Uri.parse("content://com.android.calendar/events"),
+                        new String[]{"calendar_id", "title", "description",
+                                "dtstart", "dtend", "eventLocation"}, null,
+                        null, null);
+        cursor.moveToFirst();
+        // fetching calendars name
+        String CNames[] = new String[cursor.getCount()];
+
+
+        for (int i = 0; i < CNames.length; i++) {
+            if(cursor.getString(1).contains("Työt") || cursor.getString(1).contains("Loma")){
+                long[] date_datum;
+                date_datum = new long[]{Long.parseLong(cursor.getString(3)), Long.parseLong(cursor.getString(4))};
+                dates.add(date_datum);
+
+            }
+
+            CNames[i] = cursor.getString(1);
+            cursor.moveToNext();
+        }
+
+        return dates;
+    }
+
 }
